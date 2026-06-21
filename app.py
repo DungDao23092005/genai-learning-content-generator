@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import streamlit as st
 from pydantic import ValidationError
 
@@ -44,6 +46,9 @@ if "markdown_output" not in st.session_state:
 if "markdown_filename" not in st.session_state:
     st.session_state.markdown_filename = "generated_learning_content.md"
 
+if "generation_history" not in st.session_state:
+    st.session_state.generation_history = []
+
 
 # =========================
 # Sidebar
@@ -69,7 +74,7 @@ with st.sidebar:
 
     st.info(
         "Current stage: rendered learning content, quiz, flashcards, "
-        "self-review, raw JSON preview, and Markdown export."
+        "self-review, raw JSON preview, Markdown export, and session history."
     )
 
     st.markdown("### Project Focus")
@@ -77,6 +82,15 @@ with st.sidebar:
     st.write("Structured JSON Output")
     st.write("Pydantic Validation")
     st.write("Markdown Export")
+    st.write("Session History")
+
+    st.divider()
+
+    st.markdown("### Session Stats")
+    st.metric(
+        "Generated items",
+        len(st.session_state.generation_history)
+    )
 
 
 # =========================
@@ -218,8 +232,22 @@ if submitted:
             st.session_state.markdown_output = markdown_output
             st.session_state.markdown_filename = markdown_filename
 
+            history_item = {
+                "id": len(st.session_state.generation_history) + 1,
+                "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "topic": st.session_state.generation_settings["topic"],
+                "level": st.session_state.generation_settings["level"],
+                "language": st.session_state.generation_settings["language"],
+                "question_count": st.session_state.generation_settings["question_count"],
+                "lesson_title": validated_content_dict["lesson_title"],
+                "markdown_filename": markdown_filename,
+                "markdown_output": markdown_output,
+            }
+
+            st.session_state.generation_history.append(history_item)
+
             st.success(
-                "Learning content generated, validated, and exported successfully."
+                "Learning content generated, validated, exported, and saved to history."
             )
 
         except ValidationError as error:
@@ -282,7 +310,7 @@ def render_empty_state(message: str) -> None:
 # =========================
 st.markdown("## Generated Output Preview")
 
-lesson_tab, quiz_tab, flashcard_tab, code_tab, review_tab, export_tab, raw_tab = st.tabs(
+lesson_tab, quiz_tab, flashcard_tab, code_tab, review_tab, export_tab, history_tab, raw_tab = st.tabs(
     [
         "📘 Lesson",
         "❓ Quiz",
@@ -290,6 +318,7 @@ lesson_tab, quiz_tab, flashcard_tab, code_tab, review_tab, export_tab, raw_tab =
         "💻 Code Exercise",
         "✅ Self Review",
         "📤 Export",
+        "🕘 History",
         "🧾 Raw JSON"
     ]
 )
@@ -497,6 +526,69 @@ with export_tab:
 
     else:
         render_empty_state("Markdown export will appear here after generation.")
+
+
+# =========================
+# History tab
+# =========================
+with history_tab:
+    st.subheader("Generation History")
+
+    if st.session_state.generation_history:
+        st.success(
+            f"{len(st.session_state.generation_history)} generated item(s) in this session."
+        )
+
+        history_options = list(reversed(st.session_state.generation_history))
+
+        selected_label = st.selectbox(
+            "Select a generated item",
+            options=[
+                f"#{item['id']} | {item['topic']} | {item['level']} | {item['created_at']}"
+                for item in history_options
+            ]
+        )
+
+        selected_index = [
+            f"#{item['id']} | {item['topic']} | {item['level']} | {item['created_at']}"
+            for item in history_options
+        ].index(selected_label)
+
+        selected_item = history_options[selected_index]
+
+        st.markdown("### Selected Item")
+
+        col_h1, col_h2, col_h3, col_h4 = st.columns(4)
+
+        col_h1.metric("Topic", selected_item["topic"])
+        col_h2.metric("Level", selected_item["level"])
+        col_h3.metric("Language", selected_item["language"])
+        col_h4.metric("Questions", selected_item["question_count"])
+
+        st.markdown(f"**Lesson title:** {selected_item['lesson_title']}")
+        st.markdown(f"**Created at:** {selected_item['created_at']}")
+
+        st.download_button(
+            label="Download Selected Markdown",
+            data=selected_item["markdown_output"],
+            file_name=selected_item["markdown_filename"],
+            mime="text/markdown",
+            key=f"download_history_{selected_item['id']}",
+            type="primary"
+        )
+
+        with st.expander("Preview selected Markdown"):
+            st.code(
+                selected_item["markdown_output"],
+                language="markdown"
+            )
+
+        if st.button("Clear History"):
+            st.session_state.generation_history = []
+            st.rerun()
+
+    else:
+        st.info("No generation history yet. Generate content to see it here.")
 
 
 # =========================
