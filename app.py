@@ -1,6 +1,10 @@
 import streamlit as st
 from pydantic import ValidationError
 
+from src.export_utils import (
+    build_markdown_filename,
+    export_learning_content_to_markdown,
+)
 from src.generator import generate_learning_content_raw
 from src.output_parser import parse_and_validate_output
 from src.schemas import GenerationRequest
@@ -34,6 +38,12 @@ if "validated_content" not in st.session_state:
 if "validation_status" not in st.session_state:
     st.session_state.validation_status = ""
 
+if "markdown_output" not in st.session_state:
+    st.session_state.markdown_output = ""
+
+if "markdown_filename" not in st.session_state:
+    st.session_state.markdown_filename = "generated_learning_content.md"
+
 
 # =========================
 # Sidebar
@@ -58,8 +68,8 @@ with st.sidebar:
     st.divider()
 
     st.info(
-        "Current stage: JSON parsing and Pydantic validation. "
-        "Rendered lesson, quiz, flashcards, and export will be added next."
+        "Current stage: rendered learning content, quiz, flashcards, "
+        "self-review, raw JSON preview, and Markdown export."
     )
 
     st.markdown("### Project Focus")
@@ -159,8 +169,10 @@ with st.form("content_generation_form"):
 if submitted:
     if not topic.strip():
         st.error("Please enter a topic before generating content.")
+
     elif not output_types:
         st.error("Please select at least one output type.")
+
     else:
         try:
             generation_request = GenerationRequest(
@@ -175,9 +187,13 @@ if submitted:
 
             st.session_state.generation_settings = generation_request.model_dump()
             st.session_state.generation_started = True
+
+            # Reset previous outputs before generating new content
             st.session_state.raw_generated_output = ""
             st.session_state.validated_content = None
             st.session_state.validation_status = ""
+            st.session_state.markdown_output = ""
+            st.session_state.markdown_filename = "generated_learning_content.md"
 
             with st.spinner("Generating learning content with Gemini..."):
                 raw_output = generate_learning_content_raw(generation_request)
@@ -187,10 +203,24 @@ if submitted:
             with st.spinner("Parsing and validating JSON output..."):
                 validated_content = parse_and_validate_output(raw_output)
 
-            st.session_state.validated_content = validated_content.model_dump()
+            validated_content_dict = validated_content.model_dump()
+
+            st.session_state.validated_content = validated_content_dict
             st.session_state.validation_status = "success"
 
-            st.success("Learning content generated and validated successfully.")
+            markdown_output = export_learning_content_to_markdown(
+                content=validated_content_dict,
+                settings=st.session_state.generation_settings
+            )
+
+            markdown_filename = build_markdown_filename(validated_content_dict)
+
+            st.session_state.markdown_output = markdown_output
+            st.session_state.markdown_filename = markdown_filename
+
+            st.success(
+                "Learning content generated, validated, and exported successfully."
+            )
 
         except ValidationError as error:
             st.session_state.validation_status = "failed"
@@ -252,13 +282,14 @@ def render_empty_state(message: str) -> None:
 # =========================
 st.markdown("## Generated Output Preview")
 
-lesson_tab, quiz_tab, flashcard_tab, code_tab, review_tab, raw_tab = st.tabs(
+lesson_tab, quiz_tab, flashcard_tab, code_tab, review_tab, export_tab, raw_tab = st.tabs(
     [
         "📘 Lesson",
         "❓ Quiz",
         "🧩 Flashcards",
         "💻 Code Exercise",
         "✅ Self Review",
+        "📤 Export",
         "🧾 Raw JSON"
     ]
 )
@@ -442,6 +473,33 @@ with review_tab:
 
 
 # =========================
+# Export tab
+# =========================
+with export_tab:
+    st.subheader("Export Markdown")
+
+    if st.session_state.markdown_output:
+        st.success("Markdown export is ready.")
+
+        st.download_button(
+            label="Download Markdown",
+            data=st.session_state.markdown_output,
+            file_name=st.session_state.markdown_filename,
+            mime="text/markdown",
+            type="primary"
+        )
+
+        st.markdown("### Markdown Preview")
+        st.code(
+            st.session_state.markdown_output,
+            language="markdown"
+        )
+
+    else:
+        render_empty_state("Markdown export will appear here after generation.")
+
+
+# =========================
 # Raw JSON tab
 # =========================
 with raw_tab:
@@ -462,7 +520,9 @@ with raw_tab:
     if st.session_state.validated_content:
         st.success("Output passed Pydantic validation.")
         st.json(st.session_state.validated_content)
+
     elif st.session_state.validation_status == "failed":
         st.error("Output validation failed.")
+
     else:
         st.write("Validated output will appear here after generation.")
