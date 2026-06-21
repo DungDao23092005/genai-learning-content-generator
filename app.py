@@ -2,6 +2,7 @@ import streamlit as st
 from pydantic import ValidationError
 
 from src.generator import generate_learning_content_raw
+from src.output_parser import parse_and_validate_output
 from src.schemas import GenerationRequest
 
 
@@ -27,6 +28,12 @@ if "generation_started" not in st.session_state:
 if "raw_generated_output" not in st.session_state:
     st.session_state.raw_generated_output = ""
 
+if "validated_content" not in st.session_state:
+    st.session_state.validated_content = None
+
+if "validation_status" not in st.session_state:
+    st.session_state.validation_status = ""
+
 
 # =========================
 # Sidebar
@@ -51,8 +58,8 @@ with st.sidebar:
     st.divider()
 
     st.info(
-        "Current stage: Gemini raw content generation. "
-        "JSON parsing and Pydantic validation will be added in the next commit."
+        "Current stage: JSON parsing and Pydantic validation. "
+        "Rendered lesson, quiz, flashcards, and export will be added next."
     )
 
     st.markdown("### Project Focus")
@@ -168,19 +175,30 @@ if submitted:
 
             st.session_state.generation_settings = generation_request.model_dump()
             st.session_state.generation_started = True
+            st.session_state.raw_generated_output = ""
+            st.session_state.validated_content = None
+            st.session_state.validation_status = ""
 
             with st.spinner("Generating learning content with Gemini..."):
                 raw_output = generate_learning_content_raw(generation_request)
 
             st.session_state.raw_generated_output = raw_output
 
-            st.success("Raw learning content generated successfully.")
+            with st.spinner("Parsing and validating JSON output..."):
+                validated_content = parse_and_validate_output(raw_output)
+
+            st.session_state.validated_content = validated_content.model_dump()
+            st.session_state.validation_status = "success"
+
+            st.success("Learning content generated and validated successfully.")
 
         except ValidationError as error:
+            st.session_state.validation_status = "failed"
             st.error(f"Invalid input settings: {error}")
 
         except Exception as error:
-            st.error(f"Failed to generate content: {error}")
+            st.session_state.validation_status = "failed"
+            st.error(f"Failed to generate or validate content: {error}")
 
 
 # =========================
@@ -232,11 +250,24 @@ lesson_tab, quiz_tab, flashcard_tab, code_tab, review_tab, raw_tab = st.tabs(
 with lesson_tab:
     st.subheader("Lesson Output")
 
-    if st.session_state.generation_started:
+    if st.session_state.validated_content:
+        content = st.session_state.validated_content
+
+        st.markdown(f"### {content['lesson_title']}")
         st.info(
-            "Parsed lesson output will appear here in the next commit. "
-            "For now, check the Raw JSON tab."
+            "Content is already parsed and validated. "
+            "A better UI renderer will be added in the next commit."
         )
+
+        lesson_preview = content["lesson"]
+
+        if len(lesson_preview) > 1000:
+            lesson_preview = lesson_preview[:1000] + "..."
+
+        st.write(lesson_preview)
+
+    elif st.session_state.generation_started:
+        st.info("Validated lesson preview will appear here after generation.")
     else:
         st.write("Submit the form to start content generation.")
 
@@ -247,11 +278,19 @@ with lesson_tab:
 with quiz_tab:
     st.subheader("Quiz Output")
 
-    if st.session_state.generation_started:
-        st.info(
-            "Parsed quiz questions will appear here in the next commit. "
-            "For now, check the Raw JSON tab."
+    if st.session_state.validated_content:
+        content = st.session_state.validated_content
+
+        st.success(
+            f"Validated {len(content['quiz'])} quiz questions successfully."
         )
+
+        st.write(
+            "Detailed quiz rendering will be added in the next commit."
+        )
+
+    elif st.session_state.generation_started:
+        st.info("Validated quiz questions will appear here after generation.")
     else:
         st.write("Submit the form to start content generation.")
 
@@ -262,11 +301,19 @@ with quiz_tab:
 with flashcard_tab:
     st.subheader("Flashcards Output")
 
-    if st.session_state.generation_started:
-        st.info(
-            "Parsed flashcards will appear here in the next commit. "
-            "For now, check the Raw JSON tab."
+    if st.session_state.validated_content:
+        content = st.session_state.validated_content
+
+        st.success(
+            f"Validated {len(content['flashcards'])} flashcards successfully."
         )
+
+        st.write(
+            "Detailed flashcard rendering will be added in the next commit."
+        )
+
+    elif st.session_state.generation_started:
+        st.info("Validated flashcards will appear here after generation.")
     else:
         st.write("Submit the form to start content generation.")
 
@@ -277,11 +324,20 @@ with flashcard_tab:
 with code_tab:
     st.subheader("Code Exercise Output")
 
-    if st.session_state.generation_started:
-        st.info(
-            "Parsed Python coding exercise will appear here in the next commit. "
-            "For now, check the Raw JSON tab."
-        )
+    if st.session_state.validated_content:
+        content = st.session_state.validated_content
+        code_exercise = content.get("code_exercise")
+
+        if code_exercise:
+            st.success("Validated code exercise successfully.")
+            st.write(
+                "Detailed code exercise rendering will be added in the next commit."
+            )
+        else:
+            st.warning("No code exercise was generated.")
+
+    elif st.session_state.generation_started:
+        st.info("Validated code exercise will appear here after generation.")
     else:
         st.write("Submit the form to start content generation.")
 
@@ -292,14 +348,20 @@ with code_tab:
 with review_tab:
     st.subheader("AI Self Review")
 
-    if st.session_state.generation_started:
-        if st.session_state.generation_settings["include_self_review"]:
-            st.info(
-                "Parsed AI self-review will appear here in the next commit. "
-                "For now, check the Raw JSON tab."
+    if st.session_state.validated_content:
+        content = st.session_state.validated_content
+        self_review = content.get("self_review")
+
+        if self_review:
+            st.success(
+                f"Self-review quality score: "
+                f"{self_review['quality_score']} / 10"
             )
         else:
-            st.warning("Self-review is disabled.")
+            st.warning("Self-review is disabled or not generated.")
+
+    elif st.session_state.generation_started:
+        st.info("Validated self-review will appear here after generation.")
     else:
         st.write("Submit the form to start content generation.")
 
@@ -317,3 +379,15 @@ with raw_tab:
         )
     else:
         st.write("Raw JSON output will appear here after generation.")
+
+    st.divider()
+
+    st.subheader("Validated Pydantic Output")
+
+    if st.session_state.validated_content:
+        st.success("Output passed Pydantic validation.")
+        st.json(st.session_state.validated_content)
+    elif st.session_state.validation_status == "failed":
+        st.error("Output validation failed.")
+    else:
+        st.write("Validated output will appear here after generation.")
