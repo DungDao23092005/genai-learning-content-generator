@@ -1,4 +1,8 @@
 import streamlit as st
+from pydantic import ValidationError
+
+from src.generator import generate_learning_content_raw
+from src.schemas import GenerationRequest
 
 
 # =========================
@@ -19,6 +23,9 @@ if "generation_settings" not in st.session_state:
 
 if "generation_started" not in st.session_state:
     st.session_state.generation_started = False
+
+if "raw_generated_output" not in st.session_state:
+    st.session_state.raw_generated_output = ""
 
 
 # =========================
@@ -44,8 +51,8 @@ with st.sidebar:
     st.divider()
 
     st.info(
-        "Current stage: UI input form. "
-        "Gemini generation and JSON validation will be added later."
+        "Current stage: Gemini raw content generation. "
+        "JSON parsing and Pydantic validation will be added in the next commit."
     )
 
     st.markdown("### Project Focus")
@@ -148,19 +155,32 @@ if submitted:
     elif not output_types:
         st.error("Please select at least one output type.")
     else:
-        st.session_state.generation_settings = {
-            "topic": topic.strip(),
-            "level": level,
-            "language": language,
-            "question_count": int(question_count),
-            "output_types": output_types,
-            "learning_objective": learning_objective.strip(),
-            "include_self_review": include_self_review,
-        }
+        try:
+            generation_request = GenerationRequest(
+                topic=topic.strip(),
+                level=level,
+                language=language,
+                question_count=int(question_count),
+                output_types=output_types,
+                learning_objective=learning_objective.strip(),
+                include_self_review=include_self_review,
+            )
 
-        st.session_state.generation_started = True
+            st.session_state.generation_settings = generation_request.model_dump()
+            st.session_state.generation_started = True
 
-        st.success("Input settings saved. AI generation will be added in a later commit.")
+            with st.spinner("Generating learning content with Gemini..."):
+                raw_output = generate_learning_content_raw(generation_request)
+
+            st.session_state.raw_generated_output = raw_output
+
+            st.success("Raw learning content generated successfully.")
+
+        except ValidationError as error:
+            st.error(f"Invalid input settings: {error}")
+
+        except Exception as error:
+            st.error(f"Failed to generate content: {error}")
 
 
 # =========================
@@ -194,50 +214,106 @@ if st.session_state.generation_settings:
 # =========================
 st.markdown("## Generated Output Preview")
 
-lesson_tab, quiz_tab, flashcard_tab, code_tab, review_tab = st.tabs(
+lesson_tab, quiz_tab, flashcard_tab, code_tab, review_tab, raw_tab = st.tabs(
     [
         "📘 Lesson",
         "❓ Quiz",
         "🧩 Flashcards",
         "💻 Code Exercise",
-        "✅ Self Review"
+        "✅ Self Review",
+        "🧾 Raw JSON"
     ]
 )
 
+
+# =========================
+# Lesson tab
+# =========================
 with lesson_tab:
     st.subheader("Lesson Output")
+
     if st.session_state.generation_started:
-        st.info("Generated lesson will appear here in a later commit.")
+        st.info(
+            "Parsed lesson output will appear here in the next commit. "
+            "For now, check the Raw JSON tab."
+        )
     else:
         st.write("Submit the form to start content generation.")
 
+
+# =========================
+# Quiz tab
+# =========================
 with quiz_tab:
     st.subheader("Quiz Output")
+
     if st.session_state.generation_started:
-        st.info("Generated quiz questions will appear here in a later commit.")
+        st.info(
+            "Parsed quiz questions will appear here in the next commit. "
+            "For now, check the Raw JSON tab."
+        )
     else:
         st.write("Submit the form to start content generation.")
 
+
+# =========================
+# Flashcards tab
+# =========================
 with flashcard_tab:
     st.subheader("Flashcards Output")
+
     if st.session_state.generation_started:
-        st.info("Generated flashcards will appear here in a later commit.")
+        st.info(
+            "Parsed flashcards will appear here in the next commit. "
+            "For now, check the Raw JSON tab."
+        )
     else:
         st.write("Submit the form to start content generation.")
 
+
+# =========================
+# Code Exercise tab
+# =========================
 with code_tab:
     st.subheader("Code Exercise Output")
+
     if st.session_state.generation_started:
-        st.info("Generated Python coding exercise will appear here in a later commit.")
+        st.info(
+            "Parsed Python coding exercise will appear here in the next commit. "
+            "For now, check the Raw JSON tab."
+        )
     else:
         st.write("Submit the form to start content generation.")
 
+
+# =========================
+# Self Review tab
+# =========================
 with review_tab:
     st.subheader("AI Self Review")
+
     if st.session_state.generation_started:
         if st.session_state.generation_settings["include_self_review"]:
-            st.info("AI self-review will appear here in a later commit.")
+            st.info(
+                "Parsed AI self-review will appear here in the next commit. "
+                "For now, check the Raw JSON tab."
+            )
         else:
             st.warning("Self-review is disabled.")
     else:
         st.write("Submit the form to start content generation.")
+
+
+# =========================
+# Raw JSON tab
+# =========================
+with raw_tab:
+    st.subheader("Raw Gemini Output")
+
+    if st.session_state.raw_generated_output:
+        st.code(
+            st.session_state.raw_generated_output,
+            language="json"
+        )
+    else:
+        st.write("Raw JSON output will appear here after generation.")
