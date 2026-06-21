@@ -228,6 +228,26 @@ if st.session_state.generation_settings:
 
 
 # =========================
+# Helper render functions
+# =========================
+def get_validated_content():
+    """
+    Get validated content from Streamlit session state.
+    """
+    return st.session_state.validated_content
+
+
+def render_empty_state(message: str) -> None:
+    """
+    Render a simple empty state message.
+    """
+    if st.session_state.generation_started:
+        st.info(message)
+    else:
+        st.write("Submit the form to start content generation.")
+
+
+# =========================
 # Output preview tabs
 # =========================
 st.markdown("## Generated Output Preview")
@@ -250,26 +270,23 @@ lesson_tab, quiz_tab, flashcard_tab, code_tab, review_tab, raw_tab = st.tabs(
 with lesson_tab:
     st.subheader("Lesson Output")
 
-    if st.session_state.validated_content:
-        content = st.session_state.validated_content
+    content = get_validated_content()
 
-        st.markdown(f"### {content['lesson_title']}")
-        st.info(
-            "Content is already parsed and validated. "
-            "A better UI renderer will be added in the next commit."
-        )
+    if content:
+        st.markdown(f"## {content['lesson_title']}")
 
-        lesson_preview = content["lesson"]
+        st.markdown("### Summary")
+        st.write(content["summary"])
 
-        if len(lesson_preview) > 1000:
-            lesson_preview = lesson_preview[:1000] + "..."
+        st.markdown("### Lesson")
+        st.write(content["lesson"])
 
-        st.write(lesson_preview)
+        st.markdown("### Key Points")
+        for index, point in enumerate(content["key_points"], start=1):
+            st.markdown(f"{index}. {point}")
 
-    elif st.session_state.generation_started:
-        st.info("Validated lesson preview will appear here after generation.")
     else:
-        st.write("Submit the form to start content generation.")
+        render_empty_state("Validated lesson will appear here after generation.")
 
 
 # =========================
@@ -278,21 +295,45 @@ with lesson_tab:
 with quiz_tab:
     st.subheader("Quiz Output")
 
-    if st.session_state.validated_content:
-        content = st.session_state.validated_content
+    content = get_validated_content()
 
-        st.success(
-            f"Validated {len(content['quiz'])} quiz questions successfully."
-        )
+    if content:
+        quiz_questions = content["quiz"]
 
-        st.write(
-            "Detailed quiz rendering will be added in the next commit."
-        )
+        st.success(f"Generated {len(quiz_questions)} quiz questions.")
 
-    elif st.session_state.generation_started:
-        st.info("Validated quiz questions will appear here after generation.")
+        for index, question in enumerate(quiz_questions, start=1):
+            st.markdown(f"### Question {index}")
+            st.write(question["question"])
+
+            options = question["options"]
+
+            selected_answer = st.radio(
+                "Choose your answer:",
+                options=["A", "B", "C", "D"],
+                format_func=lambda option, opts=options: (
+                    f"{option}. {opts.get(option, '')}"
+                ),
+                key=f"quiz_answer_{index}"
+            )
+
+            with st.expander("Show answer and explanation"):
+                correct_answer = question["answer"]
+
+                if selected_answer == correct_answer:
+                    st.success(f"Correct answer: {correct_answer}")
+                else:
+                    st.error(
+                        f"Your answer: {selected_answer} | "
+                        f"Correct answer: {correct_answer}"
+                    )
+
+                st.write(f"**Explanation:** {question['explanation']}")
+
+            st.divider()
+
     else:
-        st.write("Submit the form to start content generation.")
+        render_empty_state("Validated quiz questions will appear here after generation.")
 
 
 # =========================
@@ -301,21 +342,19 @@ with quiz_tab:
 with flashcard_tab:
     st.subheader("Flashcards Output")
 
-    if st.session_state.validated_content:
-        content = st.session_state.validated_content
+    content = get_validated_content()
 
-        st.success(
-            f"Validated {len(content['flashcards'])} flashcards successfully."
-        )
+    if content:
+        flashcards = content["flashcards"]
 
-        st.write(
-            "Detailed flashcard rendering will be added in the next commit."
-        )
+        st.success(f"Generated {len(flashcards)} flashcards.")
 
-    elif st.session_state.generation_started:
-        st.info("Validated flashcards will appear here after generation.")
+        for index, card in enumerate(flashcards, start=1):
+            with st.expander(f"Flashcard {index}: {card['term']}"):
+                st.write(card["definition"])
+
     else:
-        st.write("Submit the form to start content generation.")
+        render_empty_state("Validated flashcards will appear here after generation.")
 
 
 # =========================
@@ -324,22 +363,46 @@ with flashcard_tab:
 with code_tab:
     st.subheader("Code Exercise Output")
 
-    if st.session_state.validated_content:
-        content = st.session_state.validated_content
+    content = get_validated_content()
+
+    if content:
         code_exercise = content.get("code_exercise")
 
         if code_exercise:
-            st.success("Validated code exercise successfully.")
-            st.write(
-                "Detailed code exercise rendering will be added in the next commit."
+            st.markdown(f"### {code_exercise['title']}")
+
+            st.markdown("### Description")
+            st.write(code_exercise["description"])
+
+            st.markdown("### Starter Code")
+            st.code(
+                code_exercise["starter_code"],
+                language="python"
             )
+
+            if code_exercise.get("expected_output"):
+                st.markdown("### Expected Output")
+                st.code(
+                    code_exercise["expected_output"],
+                    language="text"
+                )
+
+            with st.expander("Show solution"):
+                if code_exercise.get("solution"):
+                    st.code(
+                        code_exercise["solution"],
+                        language="python"
+                    )
+
+                if code_exercise.get("explanation"):
+                    st.markdown("### Explanation")
+                    st.write(code_exercise["explanation"])
+
         else:
             st.warning("No code exercise was generated.")
 
-    elif st.session_state.generation_started:
-        st.info("Validated code exercise will appear here after generation.")
     else:
-        st.write("Submit the form to start content generation.")
+        render_empty_state("Validated code exercise will appear here after generation.")
 
 
 # =========================
@@ -348,22 +411,34 @@ with code_tab:
 with review_tab:
     st.subheader("AI Self Review")
 
-    if st.session_state.validated_content:
-        content = st.session_state.validated_content
+    content = get_validated_content()
+
+    if content:
         self_review = content.get("self_review")
 
         if self_review:
-            st.success(
-                f"Self-review quality score: "
+            st.metric(
+                "Quality Score",
                 f"{self_review['quality_score']} / 10"
             )
+
+            st.markdown("### Strengths")
+            for item in self_review["strengths"]:
+                st.markdown(f"- {item}")
+
+            st.markdown("### Weaknesses")
+            for item in self_review["weaknesses"]:
+                st.markdown(f"- {item}")
+
+            st.markdown("### Improvement Suggestions")
+            for item in self_review["improvement_suggestions"]:
+                st.markdown(f"- {item}")
+
         else:
             st.warning("Self-review is disabled or not generated.")
 
-    elif st.session_state.generation_started:
-        st.info("Validated self-review will appear here after generation.")
     else:
-        st.write("Submit the form to start content generation.")
+        render_empty_state("Validated self-review will appear here after generation.")
 
 
 # =========================
