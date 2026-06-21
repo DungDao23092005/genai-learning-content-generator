@@ -1,8 +1,8 @@
 # GenAI Learning Content Generator
 
-GenAI Learning Content Generator is a personal AI project that helps generate learning materials from a given topic using Generative AI.
+GenAI Learning Content Generator is a personal AI project that generates structured learning materials from a given topic using Generative AI.
 
-Users can enter a topic, select a difficulty level, choose the number of quiz questions, and generate structured learning content such as lesson notes, key points, flashcards, quizzes, answers, explanations, and small Python coding exercises.
+Users can enter a topic, select a difficulty level, choose the number of quiz questions, select an output language, and generate learning content such as lesson notes, summaries, key points, flashcards, quizzes, answers, explanations, Python coding exercises, AI self-review, and Markdown exports.
 
 This project was built as a portfolio project for AI Engineer / Machine Learning Engineer internship applications.
 
@@ -15,13 +15,17 @@ This project was built as a portfolio project for AI Engineer / Machine Learning
 * Select number of quiz questions
 * Select output language: Vietnamese or English
 * Generate lesson content
-* Generate key points
+* Generate summaries and key points
 * Generate flashcards
 * Generate multiple-choice quizzes
 * Generate answers and explanations
 * Generate small Python coding exercises
+* Generate AI self-review for content quality
 * Validate structured JSON output using Pydantic
+* Parse and repair JSON output when needed
+* Render validated content in Streamlit tabs
 * Export generated content as Markdown
+* Store generation history in the current app session
 
 ---
 
@@ -33,6 +37,7 @@ This project was built as a portfolio project for AI Engineer / Machine Learning
 * Pydantic
 * JSON parsing
 * Markdown export
+* python-dotenv
 
 ---
 
@@ -41,19 +46,23 @@ This project was built as a portfolio project for AI Engineer / Machine Learning
 ```text
 User enters topic and settings
         ↓
+Validate user input with Pydantic
+        ↓
 Build prompt using prompt templates
         ↓
 Send prompt to Gemini API
         ↓
 Receive structured JSON output
         ↓
-Parse JSON response
+Clean and parse JSON response
         ↓
 Validate output using Pydantic schema
         ↓
-Render lesson, quiz, flashcards, and code exercise
+Render lesson, quiz, flashcards, code exercise, and self-review
         ↓
 Export result as Markdown
+        ↓
+Save generated item to session history
 ```
 
 ---
@@ -82,7 +91,40 @@ genai-learning-content-generator/
 │   └── logistic_regression_quiz.md
 │
 └── screenshots/
+    ├── input_form.png
+    ├── generated_lesson.png
+    ├── generated_quiz.png
+    ├── markdown_export.png
+    └── generation_history.png
 ```
+
+---
+
+## Core Modules
+
+### `prompt_templates.py`
+
+Contains prompt templates for generating structured educational content, repairing invalid JSON, and reviewing content quality.
+
+### `generator.py`
+
+Handles communication with the Gemini API and uses fallback models for more reliable generation.
+
+### `output_parser.py`
+
+Cleans raw model output, extracts JSON, parses it, validates it with Pydantic, and attempts repair when the output is invalid.
+
+### `schemas.py`
+
+Defines Pydantic models for validating generation requests, lesson content, flashcards, quiz questions, code exercises, and AI self-review.
+
+### `export_utils.py`
+
+Converts validated learning content into a Markdown file that users can download.
+
+### `app.py`
+
+Main Streamlit application that connects the UI with the generation, validation, rendering, export, and history pipeline.
 
 ---
 
@@ -95,9 +137,10 @@ This project demonstrates several prompt engineering techniques:
 * Difficulty control
 * Language control
 * Self-checking prompt
-* Output validation with Pydantic
+* JSON repair prompt
 * Clear task decomposition
 * Consistent output formatting
+* Output validation with Pydantic
 
 ---
 
@@ -107,37 +150,59 @@ This project demonstrates several prompt engineering techniques:
 Topic: Logistic Regression
 Difficulty Level: Beginner
 Number of Questions: 5
-Language: English
+Language: Vietnamese
 Output Type: Lesson + Quiz + Flashcards + Code Exercise
 ```
 
 ---
 
-## Example Output
+## Example Output Structure
 
-The app generates structured learning content including:
+The app generates structured learning content in this format:
 
-```text
-Lesson:
-A short explanation of the selected topic.
-
-Key Points:
-Important concepts that learners should remember.
-
-Flashcards:
-Question-answer pairs for quick revision.
-
-Quiz:
-Multiple-choice questions with four options.
-
-Answers:
-Correct answers for each question.
-
-Explanations:
-Simple explanations for why each answer is correct.
-
-Coding Exercise:
-A small Python exercise related to the topic.
+```json
+{
+  "lesson_title": "Lesson title",
+  "lesson": "Full lesson content",
+  "summary": "Short summary",
+  "key_points": [
+    "Key point 1",
+    "Key point 2"
+  ],
+  "flashcards": [
+    {
+      "term": "Important term",
+      "definition": "Definition"
+    }
+  ],
+  "quiz": [
+    {
+      "question": "Question text",
+      "options": {
+        "A": "Option A",
+        "B": "Option B",
+        "C": "Option C",
+        "D": "Option D"
+      },
+      "answer": "B",
+      "explanation": "Explanation text"
+    }
+  ],
+  "code_exercise": {
+    "title": "Exercise title",
+    "description": "Exercise description",
+    "starter_code": "Python starter code",
+    "expected_output": "Expected output",
+    "solution": "Python solution",
+    "explanation": "Solution explanation"
+  },
+  "self_review": {
+    "quality_score": 8,
+    "strengths": [],
+    "weaknesses": [],
+    "improvement_suggestions": []
+  }
+}
 ```
 
 ---
@@ -148,21 +213,14 @@ A small Python exercise related to the topic.
 
 ```bash
 git clone https://github.com/DungDao23092005/genai-learning-content-generator.git
-```
-
-```bash
 cd genai-learning-content-generator
 ```
-
----
 
 ### 2. Create a virtual environment
 
 ```bash
 python -m venv .venv
 ```
-
----
 
 ### 3. Activate the virtual environment
 
@@ -190,15 +248,11 @@ Then activate again:
 .\.venv\Scripts\Activate.ps1
 ```
 
----
-
 ### 4. Install dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
-
----
 
 ### 5. Create `.env` file
 
@@ -209,10 +263,8 @@ copy .env.example .env
 Then open `.env` and add your Gemini API key:
 
 ```env
-GEMINI_API_KEY=your_gemini_api_key_here
+GOOGLE_API_KEY=your_google_gemini_api_key_here
 ```
-
----
 
 ### 6. Run the Streamlit app
 
@@ -227,114 +279,121 @@ streamlit run app.py
 Create a `.env` file in the root folder and add:
 
 ```env
-GEMINI_API_KEY=your_gemini_api_key_here
+GOOGLE_API_KEY=your_google_gemini_api_key_here
 ```
 
 Do not commit your `.env` file to GitHub.
 
 ---
 
-## Example `requirements.txt`
-
-```txt
-streamlit
-python-dotenv
-google-genai
-pydantic
-```
-
----
-
-## Core Modules
-
-### `prompt_templates.py`
-
-Contains prompt templates used to instruct the AI model to generate structured learning content.
-
-### `generator.py`
-
-Handles communication with the Gemini API and sends prompts to the model.
-
-### `output_parser.py`
-
-Parses the raw model response and converts it into valid JSON.
-
-### `schemas.py`
-
-Defines Pydantic models for validating lesson content, flashcards, quizzes, answers, explanations, and coding exercises.
-
-### `export_utils.py`
-
-Exports the generated learning content into Markdown format.
-
-### `app.py`
-
-Main Streamlit application file that connects the UI with the content generation pipeline.
-
----
-
 ## Screenshots
 
-Add screenshots of the app inside the `screenshots/` folder.
+### Input Form
 
-Example:
-
-```text
-screenshots/
-│
-├── home_page.png
-├── generated_lesson.png
-├── quiz_output.png
-└── markdown_export.png
-```
-
-Then display them in this README:
-
-```md
-## Screenshots
-
-### Home Page
-
-![Home Page](screenshots/home_page.png)
+![Input Form](screenshots/input_form.png)
 
 ### Generated Lesson
 
 ![Generated Lesson](screenshots/generated_lesson.png)
 
-### Quiz Output
+### Generated Quiz
 
-![Quiz Output](screenshots/quiz_output.png)
+![Generated Quiz](screenshots/generated_quiz.png)
+
+### Markdown Export
+
+![Markdown Export](screenshots/markdown_export.png)
+
+### Generation History
+
+![Generation History](screenshots/generation_history.png)
+
+---
+
+## Example Outputs
+
+Example generated Markdown files are available in the `examples/` folder:
+
+```text
+examples/
+├── decision_tree_lesson.md
+└── logistic_regression_quiz.md
 ```
 
 ---
 
-## Project Status
+## Development Process
 
-This project is under development.
+This project was developed step by step with meaningful Git commits:
 
-Current progress:
+```text
+1. chore: initialize GenAI learning content generator project
+2. feat: build Streamlit input form
+3. feat: add Pydantic schemas for structured content
+4. feat: add prompt templates for structured JSON generation
+5. feat: add Gemini content generator
+6. feat: parse and validate Gemini JSON output
+7. feat: render validated learning content
+8. feat: add Markdown export
+9. feat: add generation history and example outputs
+10. docs: polish README and project documentation
+```
 
-* Project structure created
-* README prepared
-* Prompt design planned
-* Streamlit UI planned
-* Gemini API integration planned
-* Pydantic schema validation planned
-* Markdown export planned
+---
+
+## Current Status
+
+This project has completed the main MVP features:
+
+* Streamlit input form
+* Gemini API integration
+* Prompt templates
+* Structured JSON generation
+* JSON parsing and repair
+* Pydantic validation
+* Rendered lesson, quiz, flashcards, code exercise, and self-review
+* Markdown export
+* Session-based generation history
+* Example generated outputs
+
+---
+
+## Current Limitations
+
+* Generated content quality depends on the AI model response.
+* JSON repair is attempted once if the model output is invalid.
+* Generation history is stored only in the current Streamlit session.
+* The app does not currently store generated content in a database.
+* Markdown export is supported, but PDF and DOCX export are not implemented yet.
 
 ---
 
 ## Future Improvements
 
-* Add support for more output formats
 * Add PDF export
 * Add DOCX export
-* Add quiz difficulty analysis
-* Add lesson history
 * Add downloadable flashcard deck
+* Add quiz difficulty analysis
+* Add persistent database storage for generation history
 * Add support for more AI models
-* Improve JSON parsing error handling
-* Deploy the app online
+* Add Docker support
+* Deploy the app online with Streamlit Community Cloud or Hugging Face Spaces
+
+---
+
+## What I Learned
+
+Through this project, I practiced:
+
+* Prompt engineering
+* Structured JSON generation
+* Gemini API integration
+* Pydantic schema validation
+* JSON parsing and repair
+* Streamlit UI development
+* Markdown export
+* Session state management
+* Git workflow with meaningful commits
 
 ---
 
