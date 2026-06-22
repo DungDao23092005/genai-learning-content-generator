@@ -38,6 +38,8 @@ This project was built as a portfolio project for AI Engineer / Machine Learning
 * JSON parsing
 * Markdown export
 * python-dotenv
+* Docker
+* Docker Compose
 
 ---
 
@@ -75,6 +77,9 @@ genai-learning-content-generator/
 ├── app.py
 ├── requirements.txt
 ├── README.md
+├── Dockerfile
+├── docker-compose.yml
+├── .dockerignore
 ├── .env.example
 ├── .gitignore
 │
@@ -95,7 +100,8 @@ genai-learning-content-generator/
     ├── generated_lesson.png
     ├── generated_quiz.png
     ├── markdown_export.png
-    └── generation_history.png
+    ├── generation_history.png
+    └── docker_run.png
 ```
 
 ---
@@ -158,8 +164,6 @@ Output Type: Lesson + Quiz + Flashcards + Code Exercise
 
 ## Example Output Structure
 
-The app generates structured learning content in this format:
-
 ```json
 {
   "lesson_title": "Lesson title",
@@ -187,21 +191,7 @@ The app generates structured learning content in this format:
       "answer": "B",
       "explanation": "Explanation text"
     }
-  ],
-  "code_exercise": {
-    "title": "Exercise title",
-    "description": "Exercise description",
-    "starter_code": "Python starter code",
-    "expected_output": "Expected output",
-    "solution": "Python solution",
-    "explanation": "Solution explanation"
-  },
-  "self_review": {
-    "quality_score": 8,
-    "strengths": [],
-    "weaknesses": [],
-    "improvement_suggestions": []
-  }
+  ]
 }
 ```
 
@@ -224,25 +214,13 @@ python -m venv .venv
 
 ### 3. Activate the virtual environment
 
-On Windows CMD:
+Windows CMD:
 
 ```bash
 .venv\Scripts\activate
 ```
 
-On Windows PowerShell:
-
-```bash
-.\.venv\Scripts\Activate.ps1
-```
-
-If PowerShell blocks script execution, run:
-
-```bash
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-```
-
-Then activate again:
+Windows PowerShell:
 
 ```bash
 .\.venv\Scripts\Activate.ps1
@@ -254,19 +232,19 @@ Then activate again:
 pip install -r requirements.txt
 ```
 
-### 5. Create `.env` file
+### 5. Create .env file
 
 ```bash
 copy .env.example .env
 ```
 
-Then open `.env` and add your Gemini API key:
+Add your Gemini API key:
 
 ```env
 GOOGLE_API_KEY=your_google_gemini_api_key_here
 ```
 
-### 6. Run the Streamlit app
+### 6. Run the application
 
 ```bash
 streamlit run app.py
@@ -274,15 +252,65 @@ streamlit run app.py
 
 ---
 
-## Environment Variables
+## Run with Docker
 
-Create a `.env` file in the root folder and add:
+This project can also be run using Docker.
+
+### 1. Create a .env file
+
+```bash
+copy .env.example .env
+```
+
+Add your Gemini API key:
 
 ```env
 GOOGLE_API_KEY=your_google_gemini_api_key_here
 ```
 
-Do not commit your `.env` file to GitHub.
+### 2. Build the image
+
+```bash
+docker compose build
+```
+
+### 3. Start the application
+
+```bash
+docker compose up
+```
+
+Or run in detached mode:
+
+```bash
+docker compose up -d
+```
+
+Application URL:
+
+```text
+http://localhost:8501
+```
+
+### 4. View logs
+
+```bash
+docker compose logs -f
+```
+
+### 5. Stop the application
+
+```bash
+docker compose down
+```
+
+---
+
+## Environment Variables
+
+```env
+GOOGLE_API_KEY=your_google_gemini_api_key_here
+```
 
 ---
 
@@ -308,11 +336,13 @@ Do not commit your `.env` file to GitHub.
 
 ![Generation History](screenshots/generation_history.png)
 
+### Docker Deployment
+
+![Docker Run](screenshots/docker_run.png)
+
 ---
 
 ## Example Outputs
-
-Example generated Markdown files are available in the `examples/` folder:
 
 ```text
 examples/
@@ -324,8 +354,6 @@ examples/
 
 ## Development Process
 
-This project was developed step by step with meaningful Git commits:
-
 ```text
 1. chore: initialize GenAI learning content generator project
 2. feat: build Streamlit input form
@@ -336,7 +364,8 @@ This project was developed step by step with meaningful Git commits:
 7. feat: render validated learning content
 8. feat: add Markdown export
 9. feat: add generation history and example outputs
-10. docs: polish README and project documentation
+10. feat: add Docker containerization
+11. docs: polish README and project documentation
 ```
 
 ---
@@ -354,6 +383,7 @@ This project has completed the main MVP features:
 * Rendered lesson, quiz, flashcards, code exercise, and self-review
 * Markdown export
 * Session-based generation history
+* Dockerized deployment
 * Example generated outputs
 
 ---
@@ -370,14 +400,15 @@ This project has completed the main MVP features:
 
 ## Future Improvements
 
+* Add FastAPI backend
 * Add PDF export
 * Add DOCX export
 * Add downloadable flashcard deck
 * Add quiz difficulty analysis
-* Add persistent database storage for generation history
-* Add support for more AI models
-* Add Docker support
-* Deploy the app online with Streamlit Community Cloud or Hugging Face Spaces
+* Add persistent database storage
+* Add user authentication
+* Support additional LLM providers
+* Deploy to Azure, AWS, GCP, or Hugging Face Spaces
 
 ---
 
@@ -393,19 +424,20 @@ Through this project, I practiced:
 * Streamlit UI development
 * Markdown export
 * Session state management
+* Docker containerization
+* Docker Compose environment management
 * Git workflow with meaningful commits
 
 ---
 
 ## Author
 
-**DungDao23092005**
+**Dung Dao**
 
-* GitHub: `DungDao23092005`
-* LinkedIn: `dungdao2309`
+* GitHub: https://github.com/DungDao23092005
 
 ---
 
 ## License
 
-This project is for learning and portfolio purposes.
+This project is intended for educational and portfolio purposes.
